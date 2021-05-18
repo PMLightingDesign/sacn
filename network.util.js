@@ -78,3 +78,28 @@ class Interfaces {
 }
 
 module.exports.Interfaces = Interfaces;
+
+module.exports.ipAddress = {
+  bytesToIPv4: function(array){
+    return array.join('.');
+  },
+  bytesToIPv6: function(array){
+    let ipv6 = new Array();
+    for(let i = 0; i < 16; i+= 2){
+      ipv6.push(byteArray.getUint16(array, i).toString(16).padStart(4, 0));
+    }
+    return ipv6.join(':');
+  },
+  ipv4ToBytes: function(ipv4){
+    return new Uint8Array(ipv4.split('.'));
+  },
+  ipv6ToBytes: function(ipv6){
+    let str = ipv6.split(':').join('');
+    let out = new Uint8Array(16);
+    for(let i = 0; i < 16; i++){
+      out[i] = parseInt(str.slice(0,2), 16);
+      str = str.slice(2, str.length);
+    }
+    return out;
+  }
+}

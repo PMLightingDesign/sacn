@@ -6,13 +6,15 @@ const EventEmitter = require('events');
 
 // Internal modules
 const sACNPacket = require('./packet.sacn.js');
-const Interfaces = require('./network.util.js').Interfaces;
+const { Interfaces, ipAddress } = require('./network.util.js');
+const { byteArray } = require('./byte.util.js');
 
 // Standard options object
 const OPTIONS = {
-  ip: 'auto',
+  interface: 'auto',
   universes: [1],
-  priorities: [100]
+  priorities: [100],
+  appname: "NodeJS sACN"
 }
 
 const IP_ORDER = [
@@ -27,82 +29,77 @@ const IP_ORDER = [
 const SOCKET = 5568;
 
 class SACNSocket extends EventEmitter {
-  constructor(options, log){
+  constructor(options){
     super();
 
-    // This objects actual socket
+    // Create the real UDP socket
     this.udp = dgram.createSocket('udp4');
 
-    // Assign logging function
-    if (typeof(log) === 'undefined'){
-      this.log = console.log;
-    }
-
+    // If no data us supplied, default to Universe 1, Priority 100
     if(typeof(options.universes) === 'undefined'){
       options.universes = OPTIONS.universes;
+      options.priorities = OPTIONS.priorities;
     }
 
-    // This array holds all of our data
-    this.u = new Array();
+    // Store Universes and Priorities
+    this.universes = options.universes;
+    this.priorities = options.priorities;
 
-    /*
-    {
-      universe: Universe address (uint8),
-      priority: Universe priority (uint8),
-      ip: Universe multicast address (ipv4),
-      packet: the sACN packet reference
-      data: the Uint8Array which is the universe
-    }
-    */
-
-    // Create our universe array
-    for(let i = 0; i < options.universes.length; i++){
-      // This entries packet and data
-      let packet = new sACNPacket(options.universes[i], options.priorities[i], this.log);
-      let data = new Uint8ClampedArray(512).fill(0);
-
-      this.u.push({
-        universe: options.universes[i],
-        priority: options.priorities[i],
-        ip: ('239.255.0.' + options.universes[i]),
-        packet: packet,
-        data: data
-      });
-    }
-
-    this.log(util.inspect(this.u, { depth: 1 }));
-
-    // Create universe map
-    this.universeMap = {};
-
-    for(let i = 0; i < this.u.length; i++){
-      this.universeMap[this.u[i].universe] = i;
-    }
-
-    this.log(util.inspect(this.universeMap));
-
-    // Specify network interface
-    if(options.ip === 'auto'){
+    // Specify the network interface to bind to
+    // This needs to take place before we assign the CID, which is based on the MAC
+    if(options.interface === 'auto'){
       // Service preference set as a constant, IP_ORDER
-      let iface = Interfaces.filterPreferece(IP_ORDER, 'IPv4');
-      if(typeof(iface) == undefined){
+      this.interface = Interfaces.filterPreferece(IP_ORDER, 'IPv4');
+      if(typeof(this.interface) == undefined){
         // Do not proceed if automatic assignment fails
         throw new Error("Automatic address assignment failed, no valid interface");
       }
-      this.ip = iface.address;
-    } else if(typeof(options.ip) != 'undefined') {
-      this.ip = options.op;
+      this.ip = this.interface.address;
+    } else if(typeof(options.ip) != 'undefined' && options.interface != 'auto') {
+      this.interface = options.interface;
+      this.ip = options.interface.ip;
     } else {
-      this.ip = OPTIONS.ip;
+      throw new Error("No valid interface specified");
     }
 
-    // Bind the socket
+    // Set the Appname
+    if(typeof(options.appname) == 'undefined'){
+      this.appname = OPTIONS.appname;
+    } else {
+      this.appname = options.appname;
+    }
+
+    // Set the CID
+    if(typeof(options.CID) != 'undefined'){
+      this.CID = options.CID;
+    } else {
+      this.CID = this.interface.mac;
+    }
+
+    console.log(`Setting base CID to: ${this.CID}`);
+
+    // This object holds all universe records and references
+    this.u = {}
+
+    // Create our universe array
+    for(let i = 0; i < options.universes.length; i++){
+      this.addUniverse(options.universes[i], options.priorities[i]);
+    }
+
+    console.log(util.inspect(this.u, { depth: 1 }));
+
+    // Bind the socket and set up the event handler
     this.udp.bind(SOCKET, this.ip, (err) => {
       if(err){
         throw(err);
       }
-      this.log("Starting sACN output on " + this.ip);
+
+      console.log("Starting sACN output on " + this.ip);
       this.emit('ready');
+
+      this.udp.on('message', (data) => {
+        this.emit('data', data);
+      });
     });
 
     // Release socket on disconnection
@@ -111,32 +108,60 @@ class SACNSocket extends EventEmitter {
     });
   }
 
-  // Send by internal index
-  sendIndex(i){
-    // Send data for this universe
-    this.u[i].packet.output.set(this.u[i].data, 126);
-    this.u[i].packet.tick();
-    let msg = this.u[i].packet.output.slice();
-    this.udp.send(msg, 5568, this.u[i].ip, (err) => {
-      if(err){
-        this.log(err);
-      }
+  // Send one Universe
+  sendUniverse(u){
+    this.u[u].packet.output.set(this.u[u].data, 126);
+    this.u[u].packet.tick();
+    let msg = this.u[u].packet.output.slice();
+    this.udp.send(msg, 5568, this.u[u].ip, (err) => {
+      if(err){ this.log(err); }
     });
   }
 
-  // Send by universe number
-  send(u){
-    this.sendIndex(this.universeMap[u]);
+  // Set one Universe
+  setUniverse(u, data){
+    this.u[u].data = data.slice();
   }
 
-  set(u, data){
-    this.u[this.universeMap[u]].data = data.slice();
-  }
-
-  sendAll(){
-    for(let i = 0; i < this.u.length; i++){
-      this.sendIndex(i);
+  // Takes an oject with universe numbers as keys, and Byte Array like objecs as values
+  set(d){
+    for(const [u, data] of Object.entries(d)){
+      if(typeof(this.u[u]) != 'undefined'){
+        setUniverse(u, data);
+      }
     }
+  }
+
+  // Send All Universes
+  send(){
+    this.universes.forEach((u) => { this.sendUniverse(u); });
+  }
+
+  // Add or Overwrites an existing universe
+  addUniverse(universe, priority){
+    /*
+    Universe record format
+      universe: Universe address (uint8),
+      priority: Universe priority (uint8),
+      ip: Universe multicast address (ipv4),
+      packet: An instance of the sACN packet class
+      data: the Uint8Array which is the universe
+    */
+
+    // This entries packet and data
+    let packet = new sACNPacket(universe, priority, this.appname, this.CID);
+    let data = new Uint8ClampedArray(512).fill(0);
+
+    let ip = [239, 255, 0, 0];
+    byteArray.writeUint16(ip, 2, universe);
+
+    this.u[universe] = {
+      universe: universe,
+      priority: priority,
+      ip: ipAddress.bytesToIPv4(ip),
+      packet: packet,
+      data: data
+    };
   }
 
 }
