@@ -127,7 +127,7 @@ class SACNSocket extends EventEmitter {
   set(d){
     for(const [u, data] of Object.entries(d)){
       if(typeof(this.u[u]) != 'undefined'){
-        setUniverse(u, data);
+        this.setUniverse(u, data);
       }
     }
   }
