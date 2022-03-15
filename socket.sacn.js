@@ -35,6 +35,8 @@ class SACNSocket extends EventEmitter {
     // Create the real UDP socket
     this.udp = dgram.createSocket('udp4');
 
+    console.log(options);
+
     // If no data us supplied, default to Universe 1, Priority 100
     if(typeof(options.universes) === 'undefined'){
       options.universes = OPTIONS.universes;
@@ -55,7 +57,7 @@ class SACNSocket extends EventEmitter {
         throw new Error("Automatic address assignment failed, no valid interface");
       }
       this.ip = this.interface.address;
-    } else if(typeof(options.ip) != 'undefined' && options.interface != 'auto') {
+    } else if(typeof(options.interface.ip) != 'undefined' && options.interface != 'auto') {
       this.interface = options.interface;
       this.ip = options.interface.ip;
     } else {
@@ -76,6 +78,12 @@ class SACNSocket extends EventEmitter {
       this.CID = this.interface.mac;
     }
 
+    // If we are going to listen for universe input
+    if(options.inputUniverses){
+      this.inputUniverses = options.inputUniverses;
+      this.dataIn = true;
+    }
+
     console.log(`Setting base CID to: ${this.CID}`);
 
     // This object holds all universe records and references
@@ -89,7 +97,11 @@ class SACNSocket extends EventEmitter {
     console.log(util.inspect(this.u, { depth: 1 }));
 
     // Bind the socket and set up the event handler
-    this.udp.bind(SOCKET, this.ip, (err) => {
+    this.udp.bind({
+      port: SOCKET,
+      address: this.ip,
+      exclusive: false
+    }, (err) => {
       if(err){
         throw(err);
       }
@@ -97,8 +109,25 @@ class SACNSocket extends EventEmitter {
       console.log("Starting sACN output on " + this.ip);
       this.emit('ready');
 
-      this.udp.on('message', (data) => {
-        this.emit('data', data);
+      // Bind to multicast for input universes
+      if(this.dataIn){
+        this.inputUniverses.forEach((u) => {
+          let address = '239.255.0.' + u;
+          this.udp.addMembership(address, this.ip);
+          console.log(`Listening for input on ${address}`);
+        });
+      }
+
+      this.udp.on('message', (buf, rinfo) => {
+        this.emit("raw-data", buf);
+
+        this.msgCount++;
+
+        let frame = Uint8Array.from(buf);
+        let universe = byteArray.getUint16(frame, 113);
+        let data = frame.slice(126);
+
+        this.emit(`universe-${universe.toString()}`, data);
       });
     });
 
@@ -114,7 +143,7 @@ class SACNSocket extends EventEmitter {
     this.u[u].packet.tick();
     let msg = this.u[u].packet.output.slice();
     this.udp.send(msg, 5568, this.u[u].ip, (err) => {
-      if(err){ this.log(err); }
+      if(err){ console.log(err); }
     });
   }
 
@@ -151,6 +180,10 @@ class SACNSocket extends EventEmitter {
     // This entries packet and data
     let packet = new sACNPacket(universe, priority, this.appname, this.CID);
     let data = new Uint8ClampedArray(512).fill(0);
+
+    if(!this.universes.includes(universe)){
+      this.universes.push(universe);
+    }
 
     let ip = [239, 255, 0, 0];
     byteArray.writeUint16(ip, 2, universe);

@@ -192,10 +192,11 @@ class Color {
 
 function fillUniverse(color){
   let dmx = new Uint8ClampedArray(512).fill(64);
-  for(let i = 0; i < 512; i+=4){
-    dmx.set(color.toArray(), i);
+  for(let i = 0; i < 510; i+=3){
+    let c = color.toArray();
+    dmx.set([c[1], c[0], c[2]], i);
   }
-  return dmx;
+  return dmx;s
 }
 
 // Runs some tests for the sACN socket module
@@ -203,27 +204,41 @@ let sACNSocket = require('../socket.sacn.js');
 
 // We really need to test this with the network library
 
-let color = Color.red();
+let color = new Color({r:255, g:127, b:0});
+console.log(color);
 let h = 0;
 
 let sacn = new sACNSocket({
-  universes: [1, 2, 3, 4, 5],
-  priorities: [100, 100, 100, 100, 100],
+  universes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  priorities: [100, 100, 100, 100, 100, 100, 100, 100],
   interface: 'auto'
 });
+
+function advanceColor(color){
+  h++;
+  if(h > 360){
+    h = 0;
+  }
+  return Color.fromHSL(h, 1, 0.5);
+}
 
 sacn.on('ready', () => {
   console.log("Performing send tests");
   setInterval(() => {
-    if(h < 360){ h++; } else { h = 0; }
-    color = Color.fromHSL(h, 0.5, 0.5);
+    color = advanceColor(color);
+    console.log(color);
     sacn.set({
       1: fillUniverse(color),
       2: fillUniverse(color),
       3: fillUniverse(color),
       4: fillUniverse(color),
-      5: fillUniverse(color)
+      5: fillUniverse(color),
+      6: fillUniverse(color),
+      7: fillUniverse(color),
+      8: fillUniverse(color),
+      9: fillUniverse(color)
     });
+    console.log(sacn.u[1].packet.output.slice(126, 129));
     sacn.send();
-  }, 25);
+  }, 33);
 });
