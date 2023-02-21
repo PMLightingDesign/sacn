@@ -226,7 +226,7 @@ sacn.on('ready', () => {
   console.log("Performing send tests");
   setInterval(() => {
     color = advanceColor(color);
-    console.log(color);
+    // console.log(color);
     sacn.set({
       1: fillUniverse(color),
       2: fillUniverse(color),
@@ -238,7 +238,7 @@ sacn.on('ready', () => {
       8: fillUniverse(color),
       9: fillUniverse(color)
     });
-    console.log(sacn.u[1].packet.output.slice(126, 129));
+    // console.log(sacn.u[1].packet.output.slice(126, 129));
     sacn.send();
   }, 33);
 });
