@@ -62,7 +62,7 @@ sacn.on('ready', () => {
         setObject[selected+1] = dmx;
 
         sacn.set(setObject);
-        // console.log(sacn.u[1].packet.output.slice(126, 129));
+        console.log(sacn.u[1].packet.output.slice(126, 129));
         sacn.send();
     }, 150);
 });
