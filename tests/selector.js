@@ -58,7 +58,7 @@ sacn.on('ready', () => {
         let setObject = {};
 
         for(let i = 0; i < universeCount; i++){
-            setObject[i+1] = dmx;
+            setObject[i+1] = dmxZero;
         }
 
         setObject[selected+1] = dmx;
