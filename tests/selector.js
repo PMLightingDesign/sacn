@@ -51,8 +51,10 @@ let sacn = new sACNSocket({
 sacn.on('ready', () => {
     console.log("Sending");
     setInterval(() => {
+        let setObject = {};
+
         for(let i = 0; i < universeCount; i++){
-        setObject[i+1] = dmxZero;
+            setObject[i+1] = dmxZero;
         }
 
         setObject[selected+1] = dmx;
