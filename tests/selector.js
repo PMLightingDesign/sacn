@@ -27,9 +27,17 @@ let dmxZero = new Uint8ClampedArray(512).fill(0);
 let x = 0;
 for(let i = 0; i < 510; i+=3){
     let c = colors[x % colors.length];
+    /*
     dmx[i] = c[0];
     dmx[i+1] = c[1];
     dmx[i+2] = c[2];
+
+    */
+
+    dmx[i] = 255;
+    dmx[i+1] = 0;
+    dmx[i+2] = 0;
+
     x++;
 }
 
