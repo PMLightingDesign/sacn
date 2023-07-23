@@ -58,10 +58,13 @@ sacn.on('ready', () => {
         let setObject = {};
 
         for(let i = 0; i < universeCount; i++){
-            setObject[i+1] = dmx;
+            setObject[i+1] = new Uint8ClampedArray(512).fill(0);
+            setObject[i+1].set(dmxZero);
         }
 
         setObject[selected+1] = dmx;
+
+
 
         sacn.set(setObject);
         if(process.argv[2] == 'debug'){
