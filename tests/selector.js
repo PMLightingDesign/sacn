@@ -65,7 +65,7 @@ sacn.on('ready', () => {
 
         sacn.set(setObject);
         if(process.argv[2] == 'debug'){
-            console.log(sacn.u[1].packet.output.slice(0, 12));
+            console.log(sacn.u[1].packet.output.slice(126, 126+12));
         }
         sacn.send();
     }, 150);
