@@ -24,9 +24,11 @@ let colors = [
 let dmx = new Uint8ClampedArray(512);
 let dmxZero = new Uint8ClampedArray(512).fill(0);
 
+let x = 0;
 for(let i = 0; i < 510; i+=3){
-    let c = colors[0];
-    dmx.set([c[1], c[0], c[2]], i);
+    let c = colors[x % colors.length];
+    dmx.set([c[0], c[1], c[2]], i);
+    x++;
 }
 
 let selected = 0;
@@ -81,5 +83,10 @@ process.stdin.on('keypress', (str, key) => {
             selected = 0;
         }
         console.log("Selected universe " + selected);
+    }
+
+    // allow ctrl-c to exit
+    if(key.ctrl && key.name == 'c'){
+        process.exit();
     }
 });
