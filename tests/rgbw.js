@@ -208,9 +208,20 @@ let color = new Color({r:255, g:127, b:0});
 console.log(color);
 let h = 0;
 
+let universeCount = 32;
+
+// Create an array of universes
+let universes = [];
+let priorities = [];
+
+for(let i = 0; i < universeCount; i++){
+  universes.push(i+1);
+  priorities.push(100);
+}
+
 let sacn = new sACNSocket({
-  universes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-  priorities: [100, 100, 100, 100, 100, 100, 100, 100],
+  universes: universes,
+  priorities: priorities,
   interface: 'auto'
 });
 
@@ -222,22 +233,19 @@ function advanceColor(color){
   return Color.fromHSL(h, 1, 0.5);
 }
 
+let setObject = {};
+
 sacn.on('ready', () => {
   console.log("Performing send tests");
   setInterval(() => {
     color = advanceColor(color);
     // console.log(color);
-    sacn.set({
-      1: fillUniverse(color),
-      2: fillUniverse(color),
-      3: fillUniverse(color),
-      4: fillUniverse(color),
-      5: fillUniverse(color),
-      6: fillUniverse(color),
-      7: fillUniverse(color),
-      8: fillUniverse(color),
-      9: fillUniverse(color)
-    });
+
+    for(let i = 0; i < universeCount; i++){
+      setObject[i+1] = fillUniverse(color);
+    }
+
+    sacn.set(setObject);
     // console.log(sacn.u[1].packet.output.slice(126, 129));
     sacn.send();
   }, 33);
