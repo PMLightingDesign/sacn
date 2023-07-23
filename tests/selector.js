@@ -21,13 +21,15 @@ let colors = [
     [255, 0, 255]
 ]
 
-let dmx = new Uint8ClampedArray(512);
+let dmx = new Uint8ClampedArray(512).fill(0);
 let dmxZero = new Uint8ClampedArray(512).fill(0);
 
 let x = 0;
 for(let i = 0; i < 510; i+=3){
     let c = colors[x % colors.length];
-    dmx.set([c[0], c[1], c[2]], i);
+    dmx[i] = c[0];
+    dmx[i+1] = c[1];
+    dmx[i+2] = c[2];
     x++;
 }
 
