@@ -76,13 +76,13 @@ process.stdin.on('keypress', (str, key) => {
         if(selected < 0){
             selected = universeCount - 1;
         }
-        console.log("Selected universe " + selected);
+        console.log("Selected universe " + (selected + 1));
     } else if(key.name == 'down'){
         selected++;
         if(selected >= universeCount){
             selected = 0;
         }
-        console.log("Selected universe " + selected);
+        console.log("Selected universe " + (selected + 1));
     }
 
     // allow ctrl-c to exit
